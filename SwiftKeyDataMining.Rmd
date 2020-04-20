@@ -1,0 +1,194 @@
+---
+title: 'Capstone Coursera Project Report'
+subtitle: ' SwiftKey Data Mining'
+author: 'Endri Raco'
+output:
+  pdf_document:
+    df_print: kable
+    toc: yes
+documentclass: report
+classoption: a4paper
+fig_height: 5
+fig_width: 5
+fontsize: 10pt
+highlight: zenburn
+latex_engine: xelatex
+mainfont: Arial
+mathfont: LiberationMono
+monofont: DejaVu Sans Mono
+urlcolor: blue
+---
+
+---
+
+
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+## specify the packages needed
+if(!require(kableExtra)) install.packages('kableExtra', 
+repos = 'http://cran.us.r-project.org')
+if(!require(quanteda)) install.packages('quanteda', 
+repos = 'http://cran.us.r-project.org')
+if(!require(tools)) install.packages('tools', 
+repos = 'http://cran.us.r-project.org')
+if(!require(gdata)) install.packages('gdata', 
+repos = 'http://cran.us.r-project.org')
+if(!require(corpus)) install.packages('corpus', 
+repos = 'http://cran.us.r-project.org')
+if(!require(tidyverse)) install.packages('tidyverse', 
+repos = 'http://cran.us.r-project.org')
+if(!require(tm)) install.packages('tm', 
+repos = 'http://cran.us.r-project.org')
+if(!require(tidytext)) install.packages('tidytext', 
+repos = 'http://cran.us.r-project.org')
+if(!require(textclean)) install.packages('textclean', 
+repos = 'http://cran.us.r-project.org')
+## specify global chunk options
+knitr::opts_chunk$set(fig.width = 5, fig.height = 4, dpi = 300,
+                      out.width = '90%', fig.align = 'center',
+                      tidy.opts=list(width.cutoff=60),
+                      tidy=TRUE,
+                      cache = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
+```
+
+## Dedication
+
+This project and all my work is dedicated to victims of Covid19 in Albania.
+
+&nbsp;
+
+## Acknowledgement
+
+I would like to express my special thanks of gratitude to Prof. Jeff Leek, Prof. Roger Peng
+and Prof. Brian Caffo for the wonderful material and thorough explanations they provided during all courses. Also I want to thank my friends of this course who share the same interests for Data Science. 
+
+&nbsp;
+
+## Introduction
+
+Around the world, people are spending an increasing amount of time on their mobile devices for email, social networking, banking and a whole range of other activities. But typing on mobile devices can be a serious pain. [SwiftKey](https://www.microsoft.com/en-us/swiftkey), built a smart keyboard that makes it easier for people to type on their mobile devices. 
+
+One cornerstone of their smart keyboard is predictive text models When user types some text,  the keyboard presents three options for what the next word might be. 
+
+The aim of this project is to build  a predictive model of  text and illustrate its functionality in a Shiny App.
+
+&nbsp;
+
+For all project calculations is used the following PC:
+
+```{r pc}
+print('Operating System:')
+version
+```
+
+&nbsp;
+
+## Methods and Analysis
+### Importing data
+
+&nbsp;
+
+Let's start by downloading data in our project inside **data** folder.
+
+&nbsp;
+
+```{r, data_download, eval=FALSE}
+# Set seed for reproducible results
+set.seed(12345)
+# Create variable that saves url : data_url
+data_url <- "https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip"
+# Check if directory data exist in working directory
+if (!file.exists("./data")) {
+    dir.create("./data") # if not create
+}
+# Check if file exists inside directory data
+if (!file.exists("./data/Coursera-SwiftKey.zip")) {
+    download.file(data_url, destfile = "./data/Coursera-SwiftKey.zip", mode = "wb") # if not download
+    Download_Date <- Sys.time() # save download date
+}
+# Check if extracted folder exists
+if (!file.exists("./data/final")) {
+    unzip(zipfile = "./data/Coursera-SwiftKey.zip", exdir = "./data") # if not unzip 
+}
+
+pathFiles <- file.path("./data/final", "en_US")
+files <- list.files(pathFiles, recursive = TRUE)
+files
+```
+&nbsp;
+
+Let's check the result of **unzip** 
+
+```{r, unzip-files}
+list.files("./data/",recursive = TRUE)
+```
+
+We see that as result of unzipping ***Coursera-SwiftKey.zip** we now have folder **final** with four other folders inside (de_DE, en_US, fi_FI, ru_RU)
+
+Each folder contains 3 text files named by this rule :
+
+  - **File1** : language_pattern.twitter
+
+  - **File2** : language_pattern.blogs
+
+  - **File3** : language_pattern.news
+
+
+## Loading the data in
+
+  - We are not going to load the entire dataset in to build your algorithms. For now we will read only files in English. Let's identify our selected files by using language pattern:
+  
+```{r, english-data}
+# Identify existing files with english pattern
+list.files("./data/", pattern = "^en_US", recursive = TRUE)
+```
+  
+Now let's read the data using **readLines** function:
+
+
+```{r, load-data}
+# Read data in separate files while getting certain in advance whether
+# the file contains UTF-8 (passing encoding) and skipping over nulls
+# Open a connection con1 and pass the connection to readLines() : blogs
+blogs <- readLines(con1 <- file("./data/final/en_US/en_US.blogs.txt"), encoding = "UTF-8", skipNul = TRUE)
+# Close connection
+close(con1)
+# Open a connection con2 and pass the connection to readLines() : news
+news <- readLines(con2 <- file("./data/final/en_US/en_US.news.txt"), encoding = "UTF-8", skipNul = TRUE)
+close(con2)
+# Open a connection con3 and pass the connection to readLines() :twitter
+twitter <- readLines(con3 <- file("./data/final/en_US/en_US.twitter.txt"), encoding = "UTF-8", skipNul = TRUE)
+close(con3)
+# Remove unneeded files
+rm(con1, con2, con3)
+```
+
+## Sampling Data
+
+For the model we will build, we will not need all of the data. We will use **rbinom** function to take a random sample of size 5% of each file.
+
+```{r, sample-data}
+# Sample data
+# Set seed for reproducible results
+set.seed(12345)
+# Function to random sample out of given files : binom_sample
+binom_sample <- function(orig_f) {
+# Get length of original files
+file_length <- length(orig_f)
+# Use rbinom to sample
+orig_f[rbinom(file_length *0.05,length(orig_f),0.5)]
+}
+# Use binom_sample to sample blogs: sample_blog
+sample_blog <- binom_sample(blogs)
+# Use binom_sample to sample news: sample_news
+sample_news <- binom_sample(news)
+# Use binom_sample to sample twitter: sample_twitter
+sample_twitter <- binom_sample(twitter)
+# Remove unneeded files
+rm(blogs,news,twitter, binom_sample)
+```
+
+
+## Data Cleaning
