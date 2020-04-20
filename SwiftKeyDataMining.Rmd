@@ -25,15 +25,9 @@ urlcolor: blue
 
 ```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
 ## specify the packages needed
-if(!require(kableExtra)) install.packages('kableExtra', 
+if(!require(vroom)) install.packages('vroom', 
 repos = 'http://cran.us.r-project.org')
-if(!require(quanteda)) install.packages('quanteda', 
-repos = 'http://cran.us.r-project.org')
-if(!require(tools)) install.packages('tools', 
-repos = 'http://cran.us.r-project.org')
-if(!require(gdata)) install.packages('gdata', 
-repos = 'http://cran.us.r-project.org')
-if(!require(corpus)) install.packages('corpus', 
+if(!require(stringr)) install.packages('stringr', 
 repos = 'http://cran.us.r-project.org')
 if(!require(tidyverse)) install.packages('tidyverse', 
 repos = 'http://cran.us.r-project.org')
@@ -149,21 +143,15 @@ Now let's read the data using **readLines** function:
 
 
 ```{r, load-data}
-# Read data in separate files while getting certain in advance whether
-# the file contains UTF-8 (passing encoding) and skipping over nulls
-# Open a connection con1 and pass the connection to readLines() : blogs
-blogs <- readLines(con1 <- file("./data/final/en_US/en_US.blogs.txt"), encoding = "UTF-8", skipNul = TRUE)
-# Close connection
-close(con1)
-# Open a connection con2 and pass the connection to readLines() : news
-news <- readLines(con2 <- file("./data/final/en_US/en_US.news.txt"), encoding = "UTF-8", skipNul = TRUE)
-close(con2)
-# Open a connection con3 and pass the connection to readLines() :twitter
-twitter <- readLines(con3 <- file("./data/final/en_US/en_US.twitter.txt"), encoding = "UTF-8", skipNul = TRUE)
-close(con3)
-# Remove unneeded files
-rm(con1, con2, con3)
+# Read data in separate files
+# Read blogs
+blogs <- vroom_lines("./data/final/en_US/en_US.blogs.txt")
+# Read news
+news <- vroom_lines("./data/final/en_US/en_US.news.txt")
+# Read twitter
+twitter <- vroom_lines("./data/final/en_US/en_US.twitter.txt")
 ```
+
 
 ## Sampling Data
 
@@ -186,9 +174,129 @@ sample_blog <- binom_sample(blogs)
 sample_news <- binom_sample(news)
 # Use binom_sample to sample twitter: sample_twitter
 sample_twitter <- binom_sample(twitter)
-# Remove unneeded files
-rm(blogs,news,twitter, binom_sample)
+# Remove unneeded objects
+rm(blogs, news, twitter, binom_sample)
+```
+
+
+## Data Tidying
+
+We will get our files in **tidy text** format to make process of cleaning more straightforward. 
+To get the tidy format we will get use of **tidytext** package. 
+
+We will use **unnest_tokens** function to tokenize the text, meaning to split the text in single words (unigrams) and later on in groups of two and three words(bigrams and trigrams). 
+
+With these words we will create so called **bag of words** meaning we dont care for now about structure or grammar.
+
+
+```{r, tidy-data}
+# Covert sample blog : tidy_blog
+tidy_blog <- sample_blog %>%
+  data_frame(text = .) %>%
+  unnest_tokens(word, text, format = "text")
+# Covert sample news : tidy_news
+tidy_news <- sample_news %>%
+  data_frame(text = .) %>%
+  unnest_tokens(word, text, format = "text")
+# Covert sample twitter: tidy_twitter
+tidy_twitter <- sample_twitter %>%
+  data_frame(text = .) %>%
+  unnest_tokens(word, text, format = "text")
+# Remove unneeded objects
+rm(sample_blog, sample_news, sample_twitter)
 ```
 
 
 ## Data Cleaning
+
+Now we will proceed data cleaning  using tidyverse grammar. We will create a function that will do all the cleaning for us
+
+```{r, stop_num}
+# Read a list of swearwords
+swear <- read_csv('./data/swearWords.csv')
+# Create unary function
+stop_num <- . %>% 
+  # Remove stopwords
+  anti_join(get_stopwords()) %>% 
+  # Remove numbers
+  filter(is.na(as.numeric(word))) %>% 
+  # Remove everything not a-z and -
+  filter(grepl("[^a-z'-.]", word) == FALSE) %>%
+  # Only one space left
+  filter(grepl("[\\s]+", word) == FALSE) %>%
+  # Remove twitter hashtags
+  filter(grepl("#\\S+",  word) == FALSE) %>%
+  # Remove mentions
+  filter(grepl("@\\S+",  word) == FALSE) %>%
+  # Remove special characters
+  filter(grepl("[[:cntrl:]]",  word) == FALSE) %>%
+  # Remove HTML/XML
+  filter(grepl("<[^>]*>",  word) == FALSE) %>%
+  # Remove URL
+  filter(grepl("http\\S+",  word) == FALSE) %>%
+  # remove everything non-english  
+  filter(grepl("[^[:alnum:][:space:]]",  word) == FALSE) %>%
+  # remove single letter or two
+  filter(nchar(word) > 2) %>%
+  # Remove swearwords
+  anti_join(swear, by = 'word') %>%
+  # Remove punctation and spaces
+  mutate(word = str_replace_all(word,"[:punct:]|[:space:]","")) %>%
+  # remove letters repeated more than 2 times
+  mutate(word = str_replace_all(word, "(.)\\1+", "\\1"))
+```
+
+Let's clean:
+
+```{r, clean-data}
+# Clean stopwords from tidy_blog
+tidy_blog <- tidy_blog %>% stop_num()
+# Clean stopwords from tidy_news
+tidy_news <- tidy_news %>% stop_num()
+# Clean stopwords from tidy_twitter
+tidy_twitter <- tidy_twitter %>% stop_num()
+# Remove unneeded objects
+rm(swear, stop_num)
+```
+
+
+Finally we have our reasonably cleaned data as tibble for making our following step of exploratory data analysis more straightforward.
+
+
+## Exploratory Data Analysis
+
+After cleaning our data a little bit, a natural step would be getting some insight on our data. Since the main question in text mining is to quantify the meaning of text, one way is to measure frequencies of words. Before 
+starting to collect this measurement , we first will split text in groups of one, two and three words (unigrams, bigrams, trigrams). With these words we will create so called **bag of words** meaning we dont care for now about structure or grammar.
+
+
+
+```{r, unigram}
+# Unigrams
+tidy_counts <- clean_tbl %>%
+# Tokenize by word
+unnest_tokens(word, text)%>%
+# Count by word
+count(word) 
+# View
+head(tidy_counts, 20)
+```
+
+Now lets check grafically the above result
+
+```{r, top_20_freq}
+# Visualise
+ggplot(head(tidy_counts, 20), aes(x = word,y = n)) +
+geom_bar(stat='identity',colour="white", fill =fillColor) +
+geom_text(aes(x = word, y = 1, label = paste0("(",n,")",sep="")),
+hjust=0, vjust=.5, size = 4, colour = 'black',
+fontface = 'bold') +
+labs(x = 'Word', y = 'Word Count', 
+title = 'Top 20 Most Frequent Words') +
+coord_flip() + 
+  theme_bw()
+```
+
+
+
+
+
