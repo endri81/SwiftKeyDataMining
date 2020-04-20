@@ -45,6 +45,7 @@ knitr::opts_chunk$set(fig.width = 5, fig.height = 4, dpi = 300,
                       cache = TRUE,
                       message = FALSE,
                       warning = FALSE)
+customColor = "#FFA07A"
 ```
 
 ## Dedication
@@ -265,38 +266,99 @@ Finally we have our reasonably cleaned data as tibble for making our following s
 
 ## Exploratory Data Analysis
 
-After cleaning our data a little bit, a natural step would be getting some insight on our data. Since the main question in text mining is to quantify the meaning of text, one way is to measure frequencies of words. Before 
-starting to collect this measurement , we first will split text in groups of one, two and three words (unigrams, bigrams, trigrams). With these words we will create so called **bag of words** meaning we dont care for now about structure or grammar.
+After cleaning our data a little bit, a natural step would be getting some insight on our data. Since the main question in text mining is to quantify the meaning of text, one way is to measure frequencies of words. 
 
 
+Let's check 20 most common words inside each text.
 
-```{r, unigram}
-# Unigrams
-tidy_counts <- clean_tbl %>%
-# Tokenize by word
-unnest_tokens(word, text)%>%
+```{r, blog_20counts}
+# Top 20 words
+blog_20counts <- tidy_blog %>%
 # Count by word
-count(word) 
+count(word) %>%
+arrange(desc(n)) %>%
+mutate(word = factor(word, levels = rev(unique(word)))) %>%
+head(20)   
 # View
-head(tidy_counts, 20)
+head(blog_20counts , 20)
 ```
 
 Now lets check grafically the above result
 
-```{r, top_20_freq}
+```{r, blog_20counts_plot}
 # Visualise
-ggplot(head(tidy_counts, 20), aes(x = word,y = n)) +
-geom_bar(stat='identity',colour="white", fill =fillColor) +
-geom_text(aes(x = word, y = 1, label = paste0("(",n,")",sep="")),
-hjust=0, vjust=.5, size = 4, colour = 'black',
-fontface = 'bold') +
-labs(x = 'Word', y = 'Word Count', 
-title = 'Top 20 Most Frequent Words') +
-coord_flip() + 
+ggplot(head(blog_20counts, 20), aes(x = word, y = n)) +
+  geom_bar(stat='identity',colour="white", fill = customColor) +
+  geom_text(aes(x = word, y = 1, label = paste0("(",n,")",sep="")),
+            hjust=0, vjust=.5, size = 4, colour = 'black',
+            fontface = 'bold') +
+  labs(x = 'Word', y = 'Word Count', 
+       title = 'Top 20 most Common Words') +
+  coord_flip() + 
+  theme_bw()
+```
+
+
+Let's repeat our steps for **tidy_news** and **tidy_twitter**
+
+
+For **tidy_news**
+
+```{r, news_20counts}
+# Top 20 words in tidy_news
+news_20counts <- tidy_news %>%
+# Count by word
+count(word) %>%
+arrange(desc(n)) %>%
+mutate(word = factor(word, levels = rev(unique(word)))) %>%
+head(20)   
+# View
+head(news_20counts , 20)
+```
+
+Now lets check grafically the above result
+
+```{r, news_20counts_plot}
+# Visualise
+ggplot(head(news_20counts, 20), aes(x = word, y = n)) +
+  geom_bar(stat='identity',colour="white", fill = customColor) +
+  geom_text(aes(x = word, y = 1, label = paste0("(",n,")",sep="")),
+            hjust=0, vjust=.5, size = 4, colour = 'black',
+            fontface = 'bold') +
+  labs(x = 'Word', y = 'Word Count', 
+       title = 'Top 20 most Common Words') +
+  coord_flip() + 
   theme_bw()
 ```
 
 
 
+For **tidy_twitter**
 
+```{r, twitter_20counts}
+# Top 20 words in tidy_twitter
+twitter_20counts <- tidy_twitter %>%
+# Count by word
+count(word) %>%
+arrange(desc(n)) %>%
+mutate(word = factor(word, levels = rev(unique(word)))) %>%
+head(20)   
+# View
+head(twitter_20counts , 20)
+```
+
+Now lets check grafically the above result
+
+```{r, twitter_20counts_plot}
+# Visualise
+ggplot(head(twitter_20counts, 20), aes(x = word, y = n)) +
+  geom_bar(stat='identity',colour="white", fill = customColor) +
+  geom_text(aes(x = word, y = 1, label = paste0("(",n,")",sep="")),
+            hjust=0, vjust=.5, size = 4, colour = 'black',
+            fontface = 'bold') +
+  labs(x = 'Word', y = 'Word Count', 
+       title = 'Top 20 most Common Words') +
+  coord_flip() + 
+  theme_bw()
+```
 
