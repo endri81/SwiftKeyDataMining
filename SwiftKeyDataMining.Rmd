@@ -37,6 +37,10 @@ if(!require(tidytext)) install.packages('tidytext',
 repos = 'http://cran.us.r-project.org')
 if(!require(textclean)) install.packages('textclean', 
 repos = 'http://cran.us.r-project.org')
+if(!require(wordcloud)) install.packages('wordcloud', 
+repos = 'http://cran.us.r-project.org')
+if(!require(wordcloud2)) install.packages('wordcloud2', 
+repos = 'http://cran.us.r-project.org')
 ## specify global chunk options
 knitr::opts_chunk$set(fig.width = 5, fig.height = 4, dpi = 300,
                       out.width = '90%', fig.align = 'center',
@@ -203,8 +207,6 @@ tidy_news <- sample_news %>%
 tidy_twitter <- sample_twitter %>%
   data_frame(text = .) %>%
   unnest_tokens(word, text, format = "text")
-# Remove unneeded objects
-rm(sample_blog, sample_news, sample_twitter)
 ```
 
 
@@ -361,4 +363,105 @@ ggplot(head(twitter_20counts, 20), aes(x = word, y = n)) +
   coord_flip() + 
   theme_bw()
 ```
+
+Let's attempt to join 3 files together and calculate overall frequencies.  We will use library **tm**. to build a corpus from our sample files, so that we can parse those further:
+
+```{r, build-corpus}
+# Create a list of sample files
+sample_list <- list(as.character(tidy_blog), as.character(tidy_news), as.character(tidy_twitter))
+# Create corpus
+text_corpus <- VCorpus(VectorSource(sample_list))
+# Corpus in tidy form
+tidy_corpus <- tidy(text_corpus)
+# Remove unneeded data
+rm(sample_list)
+```
+
+Let's check frequencies of 20 most common words in the joined text. Also we will visualise the results using barplot and wordcloud.
+
+
+For **tidy_twitter**
+
+```{r, corpus_freq}
+# Top 20 words in text_corpus
+corpus_20counts <- tidy_corpus %>% 
+unnest_tokens(word, text) %>%
+# Count by word
+count(word) %>%
+arrange(desc(n))
+# View
+head(corpus_20counts, 20)
+```
+
+Now lets check grafically the above result
+
+```{r, corpus_20counts_plot}
+# Visualise
+ggplot(head(corpus_20counts, 20), aes(x= reorder(word,-n),n)) +
+  geom_bar(stat='identity',colour="white", fill = customColor) +
+  geom_text(aes(x = word, y = 1, label = paste0("(",n,")",sep="")),
+            hjust=0, vjust=.5, size = 4, colour = 'black',
+            fontface = 'bold') +
+  labs(x = 'Word', y = 'Word Count', 
+       title = 'Top 20 most Common Words') +
+  coord_flip() + 
+  theme_bw()
+```
+And now as wordcloud, lets visualise top 100 common words:
+
+```{r, top 100}
+# Top 100 words
+# Top 20 words in text_corpus
+corpus_100counts <- tidy_corpus %>% 
+unnest_tokens(word, text) %>%
+# Count by word
+count(word) %>%
+arrange(desc(n)) %>% head(100)
+# Wordcloud
+wordcloud2(corpus_100counts, size = 0.6, color = customColor)
+```
+
+We have a clean corpus **text_corpus** of three documents, so we will call **TermDocumentMatrix** to construct our TDM which is a matrix where the rows represent the documents, columns represent words and values are frequencies.
+
+```{r, rdm}
+# Create TDM
+text_tdm <- TermDocumentMatrix(text_corpus)
+class(text_tdm)
+# Convert tdm to matrix
+tdm_mat <- as.matrix(text_tdm)
+# Rename columns
+colnames(tdm_mat) = c("blogs", "news", "twitter")
+# Tidy up
+tidy_tm <-tidy(tdm_mat)
+```
+
+Let's plot a commonality cloud for our data:
+
+```{r, commonality_cloud}
+# Commonality cloud
+commonality.cloud(tdm_mat, max.words = 100, colors = customColor)
+```
+
+
+We can also visualize the words which are not common between our files. 
+
+```{r, not_common}
+# Comparision cloud
+comparison.cloud(tdm_mat, colors = c("blue", "green", "darkorange"), max.words = 50)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
