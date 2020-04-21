@@ -41,6 +41,8 @@ if(!require(wordcloud)) install.packages('wordcloud',
 repos = 'http://cran.us.r-project.org')
 if(!require(wordcloud2)) install.packages('wordcloud2', 
 repos = 'http://cran.us.r-project.org')
+if(!require(RWeka)) install.packages('Rweka', 
+repos = 'http://cran.us.r-project.org')
 ## specify global chunk options
 knitr::opts_chunk$set(fig.width = 5, fig.height = 4, dpi = 300,
                       out.width = '90%', fig.align = 'center',
@@ -246,7 +248,7 @@ stop_num <- . %>%
   # Remove punctation and spaces
   mutate(word = str_replace_all(word,"[:punct:]|[:space:]","")) %>%
   # remove letters repeated more than 2 times
-  mutate(word = str_replace_all(word, "(.)\\1+", "\\1"))
+  mutate(word = str_replace_all(word, "(.{2,})\\1", "\\1"))
 ```
 
 Let's clean:
@@ -377,6 +379,85 @@ tidy_corpus <- tidy(text_corpus)
 rm(sample_list)
 ```
 
+
+Now that we understood which are the most commonly used words in each text, let’s also calculate the total words in each text
+
+```{r, totals}
+words_by_text <- tidy_corpus %>%
+# Tokenize  
+unnest_tokens(word, text) %>%
+# Count by text and word  
+count(id, word, sort = TRUE)
+# Calculate totals
+sum_words <- words_by_text %>% 
+# Group by text  
+  group_by(id) %>% 
+  summarize(total = sum(n))
+# Get results
+words_from_text <- left_join(words_by_text, sum_words)
+# View
+head (words_from_text, 20)
+```
+
+Now let's plot the distribution for each text:
+
+```{r, distributions}
+# Plot distributions
+ggplot(words_from_text, aes(n/sum, fill = id)) +
+  geom_histogram(show.legend = FALSE, fill = customColor) +
+  xlim(NA, 0.0009) +
+  facet_wrap(~id, ncol = 1, scales = "free") + 
+  ylab("Frequency") +
+  xlab("Proportion") +
+  ggtitle("Frequency Distribution of words")
+
+```
+
+We see that in all 3 text there are common words that repeat very often, but still there are many words that repeat rarely and this is explained by long tails of distribution.
+
+
+Lets calculate how many unique words do we need in a frequency sorted dictionary to cover 50% of all word instances in the language.
+
+For this we will based in our previously calculated **words_by_text**
+
+```{r, cumfreq}
+# Cummulative frequency
+accum <- words_from_text %>% 
+# Group by id  
+group_by(id) %>% 
+# New column with cumfreq  
+mutate(row_n = row_number(), `cumfreq` = cumsum(n/total)) %>%
+mutate(row_n = row_number(), `relative` = prop.table(n/total))  
+# View
+cumfreq
+```
+
+Now that we have cummulative frequencies we can plot density plots 
+
+```{r, density-plot}
+# Density plots
+accum %>% 
+  ggplot(aes(row_n, `relative`, color = id)) + 
+  geom_line(size = 1.1, alpha = 0.8, show.legend = FALSE) + 
+# Log transformation for scale  
+  scale_x_log10() +
+  xlab("Count") +
+  ylab("Relative Frequency")+
+  ggtitle("Density plot for each text")
+```
+
+Now we can answer to the question about  unique words do we need in a frequency sorted dictionary to cover a given percentage of all word instances in the language.
+
+```{r, unique-count}
+# For 50% coverage
+coverage_05 <- accum %>% filter (cumfreq < 0.5) %>% nrow()
+# For 90% coverage
+coverage_09 <- accum %>% filter (cumfreq < 0.9) %>% nrow()
+```
+
+
+
+
 Let's check frequencies of 20 most common words in the joined text. Also we will visualise the results using barplot and wordcloud.
 
 
@@ -450,13 +531,89 @@ We can also visualize the words which are not common between our files.
 comparison.cloud(tdm_mat, colors = c("blue", "green", "darkorange"), max.words = 50)
 ```
 
+Let's continue our analysis by splitting text in groups containing two or more words (bigrams and trigrams). We will use function **NGramTokenizer** from library **RWeka** library
+
+```{r, bigrams}
+# Create bigrams
+bigrams <- tidy_corpus %>% 
+unnest_tokens(bigram, text, token = "ngrams", n = 2, n_min =2)
+```
+
+And now groups of 3 words:
+
+```{r, trigrams}
+# Create trigrams
+trigrams <- tidy_corpus %>% 
+unnest_tokens(trigram, text, token = "ngrams", n = 3, n_min =3)
+```
+
+Let's plot bigram frequencies:
+
+```{r, bigram_freq}
+# Bigram frequencies
+bigrams_f <- bigrams %>%
+# Count by bigram 
+        count(bigram) %>%
+# Sort
+arrange(desc(n)) 
+# top 20 bigrams
+head(bigrams_f, 20)
+```
+
+
+```{r, bigram_20counts_plot}
+# Visualise
+ggplot(head(bigrams_f, 20), aes(x= reorder(bigram,-n),n)) +
+  geom_bar(stat='identity',colour="white", fill = customColor) +
+  geom_text(aes(x = bigram, y = 1, label = paste0("(",n,")",sep="")),
+            hjust=0, vjust=.5, size = 4, colour = 'black',
+            fontface = 'bold') +
+  labs(x = 'Word', y = 'Bigram Count', 
+       title = 'Top 20 most bigrams') +
+  coord_flip() + 
+  theme_bw()
+```
+
+Let's repeat the steps for trigrams:
+
+
+```{r, trigram_freq}
+# trigram frequencies
+trigrams_f <- trigrams %>%
+# Count by trigram 
+        count(trigram) %>%
+# Sort
+arrange(desc(n)) 
+# top 20 trigrams
+head(trigrams_f, 20)
+```
+
+
+```{r, trigram_20counts_plot}
+# Visualise
+ggplot(head(trigrams_f, 20), aes(x= reorder(trigram,-n),n)) +
+  geom_bar(stat='identity',colour="white", fill = customColor) +
+  geom_text(aes(x = trigram, y = 1, label = paste0("(",n,")",sep="")),
+            hjust=0, vjust=.5, size = 4, colour = 'black',
+            fontface = 'bold') +
+  labs(x = 'Word', y = 'trigram Count', 
+       title = 'Top 20 most trigrams') +
+  coord_flip() + 
+  theme_bw()
+```
 
 
 
+## Considerations
 
+There are several ways to evaluate how many of the words come from foreign languages. One of them is to check the difference in row numbers in dataset where we applied the regex which removes all non-english words. Here we should be careful because script has to read only words and ignore other non UTF8 symbols.
 
+Another way is to try to compare with a dictionary of English language like the approach we had for stopwords and offensive words. Everything non-matching is from foreign languages but this will be time-consuming. 
 
+Approach to increase the coverage -- identifying words that may not be in the corpora or using a smaller number of words in the dictionary to cover the same number of phrases can be in my opinion in several directions. One si to normalize text by using techniques such as **Stemming** or **Lemmatization** to get the root of words or derivations in words. 
+Another approach is to study the author style by comparing several texts of the same author and predicting by machine learning techniques.
 
+## Next steps
 
 
 
