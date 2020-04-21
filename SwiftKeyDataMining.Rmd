@@ -1,14 +1,14 @@
 ---
 title: 'Capstone Coursera Project Report'
-subtitle: ' SwiftKey Data Mining'
 author: 'Endri Raco'
+documentclass: report
 output:
+  html_document:
+    df_print: paged
+    toc: yes
   pdf_document:
     df_print: kable
     toc: yes
-documentclass: report
-classoption: a4paper
-fig_height: 5
 fig_width: 5
 fontsize: 10pt
 highlight: zenburn
@@ -16,6 +16,9 @@ latex_engine: xelatex
 mainfont: Arial
 mathfont: LiberationMono
 monofont: DejaVu Sans Mono
+fig_height: 5
+subtitle: ' SwiftKey Data Mining'
+classoption: a4paper
 urlcolor: blue
 ---
 
@@ -41,8 +44,6 @@ if(!require(wordcloud)) install.packages('wordcloud',
 repos = 'http://cran.us.r-project.org')
 if(!require(wordcloud2)) install.packages('wordcloud2', 
 repos = 'http://cran.us.r-project.org')
-if(!require(RWeka)) install.packages('Rweka', 
-repos = 'http://cran.us.r-project.org')
 ## specify global chunk options
 knitr::opts_chunk$set(fig.width = 5, fig.height = 4, dpi = 300,
                       out.width = '90%', fig.align = 'center',
@@ -51,21 +52,8 @@ knitr::opts_chunk$set(fig.width = 5, fig.height = 4, dpi = 300,
                       cache = TRUE,
                       message = FALSE,
                       warning = FALSE)
-customColor = "#FFA07A"
+customColor = '#FFA07A'
 ```
-
-## Dedication
-
-This project and all my work is dedicated to victims of Covid19 in Albania.
-
-&nbsp;
-
-## Acknowledgement
-
-I would like to express my special thanks of gratitude to Prof. Jeff Leek, Prof. Roger Peng
-and Prof. Brian Caffo for the wonderful material and thorough explanations they provided during all courses. Also I want to thank my friends of this course who share the same interests for Data Science. 
-
-&nbsp;
 
 ## Introduction
 
@@ -99,22 +87,22 @@ Let's start by downloading data in our project inside **data** folder.
 # Set seed for reproducible results
 set.seed(12345)
 # Create variable that saves url : data_url
-data_url <- "https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip"
+data_url <- 'https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip'
 # Check if directory data exist in working directory
-if (!file.exists("./data")) {
-    dir.create("./data") # if not create
+if (!file.exists('./data')) {
+    dir.create('./data') # if not create
 }
 # Check if file exists inside directory data
-if (!file.exists("./data/Coursera-SwiftKey.zip")) {
-    download.file(data_url, destfile = "./data/Coursera-SwiftKey.zip", mode = "wb") # if not download
+if (!file.exists('./data/Coursera-SwiftKey.zip')) {
+    download.file(data_url, destfile = './data/Coursera-SwiftKey.zip', mode = 'wb') # if not download
     Download_Date <- Sys.time() # save download date
 }
 # Check if extracted folder exists
-if (!file.exists("./data/final")) {
-    unzip(zipfile = "./data/Coursera-SwiftKey.zip", exdir = "./data") # if not unzip 
+if (!file.exists('./data/final')) {
+    unzip(zipfile = './data/Coursera-SwiftKey.zip', exdir = './data') # if not unzip 
 }
 
-pathFiles <- file.path("./data/final", "en_US")
+pathFiles <- file.path('./data/final', 'en_US')
 files <- list.files(pathFiles, recursive = TRUE)
 files
 ```
@@ -123,7 +111,7 @@ files
 Let's check the result of **unzip** 
 
 ```{r, unzip-files}
-list.files("./data/",recursive = TRUE)
+list.files('./data/',recursive = TRUE)
 ```
 
 We see that as result of unzipping ***Coursera-SwiftKey.zip** we now have folder **final** with four other folders inside (de_DE, en_US, fi_FI, ru_RU)
@@ -143,7 +131,7 @@ Each folder contains 3 text files named by this rule :
   
 ```{r, english-data}
 # Identify existing files with english pattern
-list.files("./data/", pattern = "^en_US", recursive = TRUE)
+list.files('./data/', pattern = '^en_US', recursive = TRUE)
 ```
   
 Now let's read the data using **readLines** function:
@@ -152,11 +140,11 @@ Now let's read the data using **readLines** function:
 ```{r, load-data}
 # Read data in separate files
 # Read blogs
-blogs <- vroom_lines("./data/final/en_US/en_US.blogs.txt")
+blogs <- vroom_lines('./data/final/en_US/en_US.blogs.txt')
 # Read news
-news <- vroom_lines("./data/final/en_US/en_US.news.txt")
+news <- vroom_lines('./data/final/en_US/en_US.news.txt')
 # Read twitter
-twitter <- vroom_lines("./data/final/en_US/en_US.twitter.txt")
+twitter <- vroom_lines('./data/final/en_US/en_US.twitter.txt')
 ```
 
 
@@ -200,15 +188,15 @@ With these words we will create so called **bag of words** meaning we dont care 
 # Covert sample blog : tidy_blog
 tidy_blog <- sample_blog %>%
   data_frame(text = .) %>%
-  unnest_tokens(word, text, format = "text")
+  unnest_tokens(word, text, format = 'text')
 # Covert sample news : tidy_news
 tidy_news <- sample_news %>%
   data_frame(text = .) %>%
-  unnest_tokens(word, text, format = "text")
+  unnest_tokens(word, text, format = 'text')
 # Covert sample twitter: tidy_twitter
 tidy_twitter <- sample_twitter %>%
   data_frame(text = .) %>%
-  unnest_tokens(word, text, format = "text")
+  unnest_tokens(word, text, format = 'text')
 ```
 
 
@@ -226,29 +214,29 @@ stop_num <- . %>%
   # Remove numbers
   filter(is.na(as.numeric(word))) %>% 
   # Remove everything not a-z and -
-  filter(grepl("[^a-z'-.]", word) == FALSE) %>%
+  filter(grepl('[^a-z'-.]', word) == FALSE) %>%
   # Only one space left
-  filter(grepl("[\\s]+", word) == FALSE) %>%
+  filter(grepl('[\\s]+', word) == FALSE) %>%
   # Remove twitter hashtags
-  filter(grepl("#\\S+",  word) == FALSE) %>%
+  filter(grepl('#\\S+',  word) == FALSE) %>%
   # Remove mentions
-  filter(grepl("@\\S+",  word) == FALSE) %>%
+  filter(grepl('@\\S+',  word) == FALSE) %>%
   # Remove special characters
-  filter(grepl("[[:cntrl:]]",  word) == FALSE) %>%
+  filter(grepl('[[:cntrl:]]',  word) == FALSE) %>%
   # Remove HTML/XML
-  filter(grepl("<[^>]*>",  word) == FALSE) %>%
+  filter(grepl('<[^>]*>',  word) == FALSE) %>%
   # Remove URL
-  filter(grepl("http\\S+",  word) == FALSE) %>%
+  filter(grepl('http\\S+',  word) == FALSE) %>%
   # remove everything non-english  
-  filter(grepl("[^[:alnum:][:space:]]",  word) == FALSE) %>%
+  filter(grepl('[^[:alnum:][:space:]]',  word) == FALSE) %>%
   # remove single letter or two
   filter(nchar(word) > 2) %>%
   # Remove swearwords
   anti_join(swear, by = 'word') %>%
   # Remove punctation and spaces
-  mutate(word = str_replace_all(word,"[:punct:]|[:space:]","")) %>%
+  mutate(word = str_replace_all(word,'[:punct:]|[:space:]','')) %>%
   # remove letters repeated more than 2 times
-  mutate(word = str_replace_all(word, "(.{2,})\\1", "\\1"))
+  mutate(word = str_replace_all(word, '(.{2,})\\1', '\\1'))
 ```
 
 Let's clean:
@@ -292,8 +280,8 @@ Now lets check grafically the above result
 ```{r, blog_20counts_plot}
 # Visualise
 ggplot(head(blog_20counts, 20), aes(x = word, y = n)) +
-  geom_bar(stat='identity',colour="white", fill = customColor) +
-  geom_text(aes(x = word, y = 1, label = paste0("(",n,")",sep="")),
+  geom_bar(stat='identity',colour='white', fill = customColor) +
+  geom_text(aes(x = word, y = 1, label = paste0('(',n,')',sep='')),
             hjust=0, vjust=.5, size = 4, colour = 'black',
             fontface = 'bold') +
   labs(x = 'Word', y = 'Word Count', 
@@ -325,8 +313,8 @@ Now lets check grafically the above result
 ```{r, news_20counts_plot}
 # Visualise
 ggplot(head(news_20counts, 20), aes(x = word, y = n)) +
-  geom_bar(stat='identity',colour="white", fill = customColor) +
-  geom_text(aes(x = word, y = 1, label = paste0("(",n,")",sep="")),
+  geom_bar(stat='identity',colour='white', fill = customColor) +
+  geom_text(aes(x = word, y = 1, label = paste0('(',n,')',sep='')),
             hjust=0, vjust=.5, size = 4, colour = 'black',
             fontface = 'bold') +
   labs(x = 'Word', y = 'Word Count', 
@@ -356,8 +344,8 @@ Now lets check grafically the above result
 ```{r, twitter_20counts_plot}
 # Visualise
 ggplot(head(twitter_20counts, 20), aes(x = word, y = n)) +
-  geom_bar(stat='identity',colour="white", fill = customColor) +
-  geom_text(aes(x = word, y = 1, label = paste0("(",n,")",sep="")),
+  geom_bar(stat='identity',colour='white', fill = customColor) +
+  geom_text(aes(x = word, y = 1, label = paste0('(',n,')',sep='')),
             hjust=0, vjust=.5, size = 4, colour = 'black',
             fontface = 'bold') +
   labs(x = 'Word', y = 'Word Count', 
@@ -406,10 +394,10 @@ Now let's plot the distribution for each text:
 ggplot(words_from_text, aes(n/sum, fill = id)) +
   geom_histogram(show.legend = FALSE, fill = customColor) +
   xlim(NA, 0.0009) +
-  facet_wrap(~id, ncol = 1, scales = "free") + 
-  ylab("Frequency") +
-  xlab("Proportion") +
-  ggtitle("Frequency Distribution of words")
+  facet_wrap(~id, ncol = 1, scales = 'free') + 
+  ylab('Frequency') +
+  xlab('Proportion') +
+  ggtitle('Frequency Distribution of words')
 
 ```
 
@@ -441,9 +429,9 @@ accum %>%
   geom_line(size = 1.1, alpha = 0.8, show.legend = FALSE) + 
 # Log transformation for scale  
   scale_x_log10() +
-  xlab("Count") +
-  ylab("Relative Frequency")+
-  ggtitle("Density plot for each text")
+  xlab('Count') +
+  ylab('Relative Frequency')+
+  ggtitle('Density plot for each text')
 ```
 
 Now we can answer to the question about  unique words do we need in a frequency sorted dictionary to cover a given percentage of all word instances in the language.
@@ -479,8 +467,8 @@ Now lets check grafically the above result
 ```{r, corpus_20counts_plot}
 # Visualise
 ggplot(head(corpus_20counts, 20), aes(x= reorder(word,-n),n)) +
-  geom_bar(stat='identity',colour="white", fill = customColor) +
-  geom_text(aes(x = word, y = 1, label = paste0("(",n,")",sep="")),
+  geom_bar(stat='identity',colour='white', fill = customColor) +
+  geom_text(aes(x = word, y = 1, label = paste0('(',n,')',sep='')),
             hjust=0, vjust=.5, size = 4, colour = 'black',
             fontface = 'bold') +
   labs(x = 'Word', y = 'Word Count', 
@@ -511,7 +499,7 @@ class(text_tdm)
 # Convert tdm to matrix
 tdm_mat <- as.matrix(text_tdm)
 # Rename columns
-colnames(tdm_mat) = c("blogs", "news", "twitter")
+colnames(tdm_mat) = c('blogs', 'news', 'twitter')
 # Tidy up
 tidy_tm <-tidy(tdm_mat)
 ```
@@ -528,7 +516,7 @@ We can also visualize the words which are not common between our files.
 
 ```{r, not_common}
 # Comparision cloud
-comparison.cloud(tdm_mat, colors = c("blue", "green", "darkorange"), max.words = 50)
+comparison.cloud(tdm_mat, colors = c('blue', 'green', 'darkorange'), max.words = 50)
 ```
 
 Let's continue our analysis by splitting text in groups containing two or more words (bigrams and trigrams). We will use function **NGramTokenizer** from library **RWeka** library
@@ -536,7 +524,7 @@ Let's continue our analysis by splitting text in groups containing two or more w
 ```{r, bigrams}
 # Create bigrams
 bigrams <- tidy_corpus %>% 
-unnest_tokens(bigram, text, token = "ngrams", n = 2, n_min =2)
+unnest_tokens(bigram, text, token = 'ngrams', n = 2, n_min =2)
 ```
 
 And now groups of 3 words:
@@ -544,7 +532,7 @@ And now groups of 3 words:
 ```{r, trigrams}
 # Create trigrams
 trigrams <- tidy_corpus %>% 
-unnest_tokens(trigram, text, token = "ngrams", n = 3, n_min =3)
+unnest_tokens(trigram, text, token = 'ngrams', n = 3, n_min =3)
 ```
 
 Let's plot bigram frequencies:
@@ -564,8 +552,8 @@ head(bigrams_f, 20)
 ```{r, bigram_20counts_plot}
 # Visualise
 ggplot(head(bigrams_f, 20), aes(x= reorder(bigram,-n),n)) +
-  geom_bar(stat='identity',colour="white", fill = customColor) +
-  geom_text(aes(x = bigram, y = 1, label = paste0("(",n,")",sep="")),
+  geom_bar(stat='identity',colour='white', fill = customColor) +
+  geom_text(aes(x = bigram, y = 1, label = paste0('(',n,')',sep='')),
             hjust=0, vjust=.5, size = 4, colour = 'black',
             fontface = 'bold') +
   labs(x = 'Word', y = 'Bigram Count', 
@@ -592,8 +580,8 @@ head(trigrams_f, 20)
 ```{r, trigram_20counts_plot}
 # Visualise
 ggplot(head(trigrams_f, 20), aes(x= reorder(trigram,-n),n)) +
-  geom_bar(stat='identity',colour="white", fill = customColor) +
-  geom_text(aes(x = trigram, y = 1, label = paste0("(",n,")",sep="")),
+  geom_bar(stat='identity',colour='white', fill = customColor) +
+  geom_text(aes(x = trigram, y = 1, label = paste0('(',n,')',sep='')),
             hjust=0, vjust=.5, size = 4, colour = 'black',
             fontface = 'bold') +
   labs(x = 'Word', y = 'trigram Count', 
@@ -615,6 +603,21 @@ Another approach is to study the author style by comparing several texts of the 
 
 ## Next steps
 
+The future steps to undertake follow this order:
+
+  1. Based on combinations of words we previously observed inside text, I will try to create an n-gram statistical model to predict the following word based on one, two or three words.  Following Markov assumption that the probability of a word depends only on the previous word I will try to estimate bigram probabilites (only one word in the past) and try to expand the idea for trigrams.
+  
+  2. The estimation of probabilites will be done by Maximum Likelihood Estimation by normalizing the counts we already computed in previous section. For the trigram we will need the parameter $p(w_3, w1, w_2)$
+  
+  
+  3. To 'smooth' the probabilities ( giving all n-grams a non-zero probability even if they aren't observed in the data) we can apply **backoff** approach, meaning  turn  to a lower-order n-gram since we don't know anything about higher-order interpolation n-gram. We can backoff like this to the level we find some counts.
+ 
+  4. The estimation of model will be done by splitting our previously build corpus of data in **train**
+and **test** sets. We will train parameters of the model in the training set and see how accurately the test set is predicted.
+
+  5. Finally we will build a Shiny app to see practically how our model performs.
+  
+  
 
 
 
